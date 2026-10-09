@@ -1,0 +1,22 @@
+name: flutter_gguf_agent_example
+description: "Autonomous On-Device Mobile Coding Agent powered by flutter_gguf."
+publish_to: 'none'
+
+environment:
+  sdk: ^3.0.0
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gguf:
+    path: ../
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
