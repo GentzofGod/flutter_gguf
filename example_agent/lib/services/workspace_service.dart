@@ -1,24 +1,116 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/agent_state.dart';
 
-/// Manages workspace files in memory with simulated IDE capabilities.
+/// Computes line-by-line insertions, deletions, and unchanged lines.
+class DiffComputer {
+  static List<DiffLine> compute(String oldText, String newText) {
+    final oldLines = oldText.isEmpty ? <String>[] : oldText.split('\n');
+    final newLines = newText.isEmpty ? <String>[] : newText.split('\n');
+    final m = oldLines.length;
+    final n = newLines.length;
+
+    // LCS dynamic programming table
+    final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        if (oldLines[i] == newLines[j]) {
+          dp[i + 1][j + 1] = dp[i][j] + 1;
+        } else {
+          dp[i + 1][j + 1] = dp[i + 1][j] > dp[i][j + 1] ? dp[i + 1][j] : dp[i][j + 1];
+        }
+      }
+    }
+
+    // Backtrack to build diff lines
+    final result = <DiffLine>[];
+    int i = m;
+    int j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldLines[i - 1] == newLines[j - 1]) {
+        result.add(DiffLine(
+          type: DiffType.unchanged,
+          oldLineNumber: i,
+          newLineNumber: j,
+          text: oldLines[i - 1],
+        ));
+        i--;
+        j--;
+      } else if (j > 0 && (i == 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        result.add(DiffLine(
+          type: DiffType.insertion,
+          newLineNumber: j,
+          text: newLines[j - 1],
+        ));
+        j--;
+      } else if (i > 0 && (j == 0 || dp[i][j - 1] < dp[i - 1][j])) {
+        result.add(DiffLine(
+          type: DiffType.deletion,
+          oldLineNumber: i,
+          text: oldLines[i - 1],
+        ));
+        i--;
+      }
+    }
+
+    return result.reversed.toList();
+  }
+}
+
+/// Manages workspace files backed by visible Android storage and memory.
 class WorkspaceService extends ChangeNotifier {
   final Map<String, WorkspaceFile> _files = {};
+  String? _diskDirectoryPath;
 
   WorkspaceService() {
+    _initStorageLocation();
     _initDefaultFiles();
   }
 
   Map<String, WorkspaceFile> get files => Map.unmodifiable(_files);
-
   List<String> get filePaths => _files.keys.toList()..sort();
+  String? get diskDirectoryPath => _diskDirectoryPath;
+
+  void _initStorageLocation() {
+    try {
+      if (Platform.isAndroid) {
+        final docsDir = Directory('/storage/emulated/0/Documents/MobileCodingAgent');
+        final dlDir = Directory('/storage/emulated/0/Download/MobileCodingAgent');
+
+        if (docsDir.existsSync() || _tryCreateDir(docsDir)) {
+          _diskDirectoryPath = docsDir.path;
+        } else if (dlDir.existsSync() || _tryCreateDir(dlDir)) {
+          _diskDirectoryPath = dlDir.path;
+        } else {
+          final tempDir = Directory('${Directory.systemTemp.path}/MobileCodingAgent');
+          _tryCreateDir(tempDir);
+          _diskDirectoryPath = tempDir.path;
+        }
+      } else {
+        final localDir = Directory('${Directory.systemTemp.path}/MobileCodingAgent');
+        _tryCreateDir(localDir);
+        _diskDirectoryPath = localDir.path;
+      }
+    } catch (_) {
+      _diskDirectoryPath = null;
+    }
+  }
+
+  bool _tryCreateDir(Directory dir) {
+    try {
+      dir.createSync(recursive: true);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   void _initDefaultFiles() {
     _files.clear();
 
-    _files['lib/main.dart'] = WorkspaceFile(
-      path: 'lib/main.dart',
-      content: '''// Entry point of the sample project
+    _registerAndSaveFile(
+      'lib/main.dart',
+      '''// Entry point of the sample project
 import 'calculator.dart';
 import 'data_service.dart';
 
@@ -33,9 +125,9 @@ void main() {
 ''',
     );
 
-    _files['lib/calculator.dart'] = WorkspaceFile(
-      path: 'lib/calculator.dart',
-      content: '''// Basic calculator utility with known issues
+    _registerAndSaveFile(
+      'lib/calculator.dart',
+      '''// Basic calculator utility with known issues
 class Calculator {
   double add(double a, double b) => a + b;
   double subtract(double a, double b) => a - b;
@@ -49,9 +141,9 @@ class Calculator {
 ''',
     );
 
-    _files['lib/data_service.dart'] = WorkspaceFile(
-      path: 'lib/data_service.dart',
-      content: '''// Data fetcher and transformer
+    _registerAndSaveFile(
+      'lib/data_service.dart',
+      '''// Data fetcher and transformer
 class DataService {
   final Map<String, dynamic> _cache = {};
 
@@ -73,9 +165,9 @@ class DataService {
 ''',
     );
 
-    _files['test/calculator_test.dart'] = WorkspaceFile(
-      path: 'test/calculator_test.dart',
-      content: '''// Unit tests for calculator
+    _registerAndSaveFile(
+      'test/calculator_test.dart',
+      '''// Unit tests for calculator
 import 'package:flutter_test/flutter_test.dart';
 import '../lib/calculator.dart';
 
@@ -89,6 +181,16 @@ void main() {
     );
   }
 
+  void _registerAndSaveFile(String path, String content) {
+    final file = WorkspaceFile(
+      path: path,
+      content: content,
+      originalContent: content,
+    );
+    _files[path] = file;
+    _writeToDisk(path, content);
+  }
+
   void resetToDefault() {
     _initDefaultFiles();
     notifyListeners();
@@ -96,27 +198,56 @@ void main() {
 
   String? readFile(String path) {
     final clean = _normalizePath(path);
+    if (_diskDirectoryPath != null) {
+      final diskFile = File('$_diskDirectoryPath/$clean');
+      if (diskFile.existsSync()) {
+        try {
+          final content = diskFile.readAsStringSync();
+          _files[clean]?.content = content;
+          return content;
+        } catch (_) {}
+      }
+    }
     return _files[clean]?.content;
   }
 
   bool writeFile(String path, String content) {
     final clean = _normalizePath(path);
     final exists = _files.containsKey(clean);
-    
+
     if (exists) {
       final existing = _files[clean]!;
+      existing.originalContent ??= existing.content;
       existing.content = content;
       existing.lastModified = DateTime.now();
       existing.isModifiedByAgent = true;
+      existing.diffLines = DiffComputer.compute(existing.originalContent!, content);
     } else {
-      _files[clean] = WorkspaceFile(
+      final newFile = WorkspaceFile(
         path: clean,
         content: content,
+        originalContent: '',
         isCreatedByAgent: true,
       );
+      newFile.diffLines = DiffComputer.compute('', content);
+      _files[clean] = newFile;
     }
+
+    _writeToDisk(clean, content);
     notifyListeners();
     return true;
+  }
+
+  void _writeToDisk(String relativePath, String content) {
+    if (_diskDirectoryPath == null) return;
+    try {
+      final file = File('$_diskDirectoryPath/$relativePath');
+      final parent = file.parent;
+      if (!parent.existsSync()) {
+        parent.createSync(recursive: true);
+      }
+      file.writeAsStringSync(content);
+    } catch (_) {}
   }
 
   List<String> listFiles([String? prefix]) {
@@ -146,7 +277,6 @@ void main() {
     final content = file.content;
     final issues = <String>[];
 
-    // Bracket & parenthesis matching check
     final stack = <String>[];
     final lines = content.split('\n');
     for (var l = 0; l < lines.length; l++) {

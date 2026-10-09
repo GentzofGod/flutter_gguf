@@ -50,6 +50,7 @@ class _CodingAgentHomePageState extends State<CodingAgentHomePage> {
 
   int _selectedTabIndex = 0;
   String? _selectedFilePath;
+  bool _showDiffView = false;
   double _temperature = 0.2;
   double _topP = 0.95;
   int _nThreads = 4;
@@ -102,7 +103,6 @@ class _CodingAgentHomePageState extends State<CodingAgentHomePage> {
       maxSteps: _maxSteps,
     );
 
-    // Auto-scroll trajectory
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_trajectoryScroll.hasClients) {
         _trajectoryScroll.animateTo(
@@ -552,128 +552,70 @@ class _CodingAgentHomePageState extends State<CodingAgentHomePage> {
     }
   }
 
-  // ================= TAB 2: WORKSPACE EXPLORER =================
+  // ================= TAB 2: WORKSPACE & DIFF EXPLORER =================
   Widget _buildWorkspaceTab() {
     final selectedFile = _selectedFilePath != null ? _workspace.files[_selectedFilePath] : null;
 
-    return Row(
+    return Column(
       children: [
-        // Left File Tree (120 - 160 width)
-        Container(
-          width: 140,
-          decoration: const BoxDecoration(
-            color: Color(0xFF181825),
-            border: Border(right: BorderSide(color: Color(0xFF28283D))),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.folder, size: 16, color: Color(0xFF64B5F6)),
-                    const SizedBox(width: 6),
-                    const Text('Files', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, size: 14),
-                      tooltip: 'Reset Workspace',
-                      onPressed: () {
-                        _workspace.resetToDefault();
-                        setState(() => _selectedFilePath = _workspace.filePaths.firstOrNull);
-                      },
-                    ),
-                  ],
+        if (_workspace.diskDirectoryPath != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            color: const Color(0xFF1E2230),
+            child: Row(
+              children: [
+                const Icon(Icons.sd_storage, size: 14, color: Color(0xFF81C784)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Visible Storage: ${_workspace.diskDirectoryPath}',
+                    style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF81C784)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const Divider(height: 1, color: Color(0xFF28283D)),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _workspace.filePaths.length,
-                  itemBuilder: (context, idx) {
-                    final path = _workspace.filePaths[idx];
-                    final file = _workspace.files[path];
-                    final isSelected = path == _selectedFilePath;
-
-                    return ListTile(
-                      dense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                      selected: isSelected,
-                      selectedTileColor: const Color(0xFF64B5F6).withValues(alpha: 0.15),
-                      leading: Icon(
-                        path.endsWith('.dart') ? Icons.code : Icons.description,
-                        size: 14,
-                        color: file?.isModifiedByAgent == true
-                            ? const Color(0xFFFFB74D)
-                            : file?.isCreatedByAgent == true
-                                ? const Color(0xFF81C784)
-                                : Colors.white60,
-                      ),
-                      title: Text(
-                        path,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? const Color(0xFF64B5F6) : Colors.white70,
-                        ),
-                      ),
-                      onTap: () => setState(() => _selectedFilePath = path),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 12, color: Colors.white60),
+                  tooltip: 'Copy Directory Path',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: _workspace.diskDirectoryPath!));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Storage path copied!'), duration: Duration(seconds: 1)),
                     );
                   },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-
-        // Right Code Viewer
         Expanded(
-          child: selectedFile == null
-              ? const Center(child: Text('Select a file to inspect code.', style: TextStyle(color: Colors.white38)))
-              : Column(
+          child: Row(
+            children: [
+              // Left File Tree (140 width)
+              Container(
+                width: 140,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF181825),
+                  border: Border(right: BorderSide(color: Color(0xFF28283D))),
+                ),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      color: const Color(0xFF181825),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
                       child: Row(
                         children: [
-                          Text(
-                            selectedFile.path,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          if (selectedFile.isCreatedByAgent)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF81C784).withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text('Created by Agent', style: TextStyle(fontSize: 9, color: Color(0xFF81C784))),
-                            )
-                          else if (selectedFile.isModifiedByAgent)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFB74D).withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text('Modified', style: TextStyle(fontSize: 9, color: Color(0xFFFFB74D))),
-                            ),
+                          const Icon(Icons.folder, size: 16, color: Color(0xFF64B5F6)),
+                          const SizedBox(width: 6),
+                          const Text('Files', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           const Spacer(),
-                          Text('${selectedFile.lineCount} lines', style: const TextStyle(fontSize: 10, color: Colors.white38)),
-                          const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.copy, size: 14),
-                            tooltip: 'Copy Code',
+                            icon: const Icon(Icons.refresh, size: 14),
+                            tooltip: 'Reset Workspace',
                             onPressed: () {
-                              Clipboard.setData(ClipboardData(text: selectedFile.content));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Code copied to clipboard!'), duration: Duration(seconds: 1)),
-                              );
+                              _workspace.resetToDefault();
+                              setState(() => _selectedFilePath = _workspace.filePaths.firstOrNull);
                             },
                           ),
                         ],
@@ -681,26 +623,216 @@ class _CodingAgentHomePageState extends State<CodingAgentHomePage> {
                     ),
                     const Divider(height: 1, color: Color(0xFF28283D)),
                     Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SelectableText(
-                            selectedFile.content,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                              color: Color(0xFFE0E0E0),
-                              height: 1.4,
+                      child: ListView.builder(
+                        itemCount: _workspace.filePaths.length,
+                        itemBuilder: (context, idx) {
+                          final path = _workspace.filePaths[idx];
+                          final file = _workspace.files[path];
+                          final isSelected = path == _selectedFilePath;
+
+                          return ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                            selected: isSelected,
+                            selectedTileColor: const Color(0xFF64B5F6).withValues(alpha: 0.15),
+                            leading: Icon(
+                              path.endsWith('.dart') ? Icons.code : Icons.description,
+                              size: 14,
+                              color: file?.isModifiedByAgent == true
+                                  ? const Color(0xFFFFB74D)
+                                  : file?.isCreatedByAgent == true
+                                      ? const Color(0xFF81C784)
+                                      : Colors.white60,
                             ),
-                          ),
-                        ),
+                            title: Text(
+                              path,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? const Color(0xFF64B5F6) : Colors.white70,
+                              ),
+                            ),
+                            subtitle: (file != null && (file.additionsCount > 0 || file.deletionsCount > 0))
+                                ? Row(
+                                    children: [
+                                      if (file.additionsCount > 0)
+                                        Text('+${file.additionsCount} ', style: const TextStyle(fontSize: 9, color: Color(0xFF81C784), fontWeight: FontWeight.bold)),
+                                      if (file.deletionsCount > 0)
+                                        Text('-${file.deletionsCount}', style: const TextStyle(fontSize: 9, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                    ],
+                                  )
+                                : null,
+                            onTap: () => setState(() => _selectedFilePath = path),
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
+              ),
+
+              // Right Code & Diff Viewer
+              Expanded(
+                child: selectedFile == null
+                    ? const Center(child: Text('Select a file to inspect code.', style: TextStyle(color: Colors.white38)))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            color: const Color(0xFF181825),
+                            child: Row(
+                              children: [
+                                Text(
+                                  selectedFile.path,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                if (selectedFile.isCreatedByAgent)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF81C784).withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text('Created', style: TextStyle(fontSize: 9, color: Color(0xFF81C784))),
+                                  )
+                                else if (selectedFile.isModifiedByAgent)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFB74D).withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text('Modified', style: TextStyle(fontSize: 9, color: Color(0xFFFFB74D))),
+                                  ),
+                                const Spacer(),
+                                if (selectedFile.diffLines.isNotEmpty)
+                                  SegmentedButton<bool>(
+                                    segments: const [
+                                      ButtonSegment(value: false, label: Text('Code', style: TextStyle(fontSize: 10))),
+                                      ButtonSegment(value: true, label: Text('Diff ±', style: TextStyle(fontSize: 10))),
+                                    ],
+                                    selected: {_showDiffView},
+                                    onSelectionChanged: (s) => setState(() => _showDiffView = s.first),
+                                    style: SegmentedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.copy, size: 14),
+                                  tooltip: 'Copy Code',
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: selectedFile.content));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Code copied to clipboard!'), duration: Duration(seconds: 1)),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFF28283D)),
+                          Expanded(
+                            child: _showDiffView && selectedFile.diffLines.isNotEmpty
+                                ? _buildDiffView(selectedFile)
+                                : _buildCodeView(selectedFile),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCodeView(WorkspaceFile file) {
+    final lines = file.content.split('\n');
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: lines.length,
+      itemBuilder: (context, idx) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 32,
+              child: Text(
+                '${idx + 1}',
+                style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.white24),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SelectableText(
+                lines[idx],
+                style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFFE0E0E0)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDiffView(WorkspaceFile file) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: file.diffLines.length,
+      itemBuilder: (context, idx) {
+        final diff = file.diffLines[idx];
+        Color bg = Colors.transparent;
+        Color fg = const Color(0xFFE0E0E0);
+        String prefix = ' ';
+
+        if (diff.type == DiffType.insertion) {
+          bg = const Color(0xFF1E3A2B);
+          fg = const Color(0xFFA7F3D0);
+          prefix = '+';
+        } else if (diff.type == DiffType.deletion) {
+          bg = const Color(0xFF3B1E22);
+          fg = const Color(0xFFFCA5A5);
+          prefix = '-';
+        }
+
+        return Container(
+          color: bg,
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 28,
+                child: Text(
+                  diff.newLineNumber?.toString() ?? diff.oldLineNumber?.toString() ?? '',
+                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white30),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              SizedBox(
+                width: 16,
+                child: Text(
+                  prefix,
+                  style: TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold, color: fg),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Expanded(
+                child: SelectableText(
+                  diff.text,
+                  style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: fg),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

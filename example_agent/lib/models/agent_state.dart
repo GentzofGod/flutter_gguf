@@ -112,17 +112,42 @@ class AgentTrajectoryStep {
   }
 }
 
-/// Virtual or local workspace file.
+/// Diff line change type.
+enum DiffType {
+  unchanged,
+  insertion,
+  deletion,
+}
+
+/// A single line in a computed diff.
+class DiffLine {
+  final DiffType type;
+  final int? oldLineNumber;
+  final int? newLineNumber;
+  final String text;
+
+  const DiffLine({
+    required this.type,
+    this.oldLineNumber,
+    this.newLineNumber,
+    required this.text,
+  });
+}
+
+/// Virtual or local workspace file with version history and diff tracking.
 class WorkspaceFile {
   final String path;
   String content;
+  String? originalContent;
   DateTime lastModified;
   bool isCreatedByAgent;
   bool isModifiedByAgent;
+  List<DiffLine> diffLines = [];
 
   WorkspaceFile({
     required this.path,
     required this.content,
+    this.originalContent,
     DateTime? lastModified,
     this.isCreatedByAgent = false,
     this.isModifiedByAgent = false,
@@ -130,4 +155,7 @@ class WorkspaceFile {
 
   int get lineCount => content.split('\n').length;
   int get byteSize => utf8.encode(content).length;
+
+  int get additionsCount => diffLines.where((d) => d.type == DiffType.insertion).length;
+  int get deletionsCount => diffLines.where((d) => d.type == DiffType.deletion).length;
 }
