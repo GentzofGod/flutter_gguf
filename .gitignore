@@ -1,0 +1,47 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+/pubspec.lock
+**/doc/api/
+.dart_tool/
+.flutter-plugins-dependencies
+build/
+/coverage/
+
+# Android related
+**/android/.gradle/
+**/android/local.properties
+**/android/**/build/
+**/.cxx/
+*.apk
+*.aab
+*.aar
+
+# Example app artifacts
+example/.dart_tool/
+example/build/
+example/pubspec.lock
+example/android/.gradle/
+example/android/local.properties
+
