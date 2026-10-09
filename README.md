@@ -6,13 +6,13 @@ A high-performance Flutter plugin for running **GGUF (llama.cpp)** language mode
 
 ## Features
 
-- 📱 **On-Device & 100% Offline**: Run quantized GGUF models directly on mobile without internet access.
-- ⚡ **High-Performance Native C++ Engine**: Powered by `llama.cpp` with ARM NEON, FP16 arithmetic, and Dot Product optimizations.
-- 🧵 **Non-Blocking UI (Dart Isolate)**: Model loading, prompt evaluation, and token generation run on background isolates, keeping the Flutter UI fluid at 60/120 fps.
-- 🌊 **Token Streaming**: Stream generated tokens in real-time as a standard Dart `Stream<String>`.
-- 💬 **Built-in Chat Templates**: Automatic template formatting for ChatML, Llama-3, Mistral, Gemma, and custom templates.
-- 📊 **Real-Time Telemetry**: Track generation speed (tokens/sec), duration, and prompt evaluation latency.
-- 🛑 **Immediate Cancellation**: Stop active token generation at any point.
+- **On-Device & 100% Offline**: Run quantized GGUF models directly on mobile without internet access.
+- **High-Performance Native C++ Engine**: Powered by `llama.cpp` with ARM NEON, FP16 arithmetic, and Dot Product optimizations.
+- **Non-Blocking UI (Dart Isolate)**: Model loading, prompt evaluation, and token generation run on background isolates, keeping the Flutter UI fluid at 60/120 fps.
+- **Token Streaming**: Stream generated tokens in real-time as a standard Dart `Stream<String>`.
+- **Built-in Chat Templates**: Automatic template formatting for ChatML, Llama-3, Mistral, Gemma, and custom templates.
+- **Real-Time Telemetry**: Track generation speed (tokens/sec), duration, and prompt evaluation latency.
+- **Immediate Cancellation**: Stop active token generation at any point.
 
 ---
 
@@ -76,7 +76,7 @@ model.chat(
     maxTokens: 256,
   ),
   onStats: (stats) {
-    print('⚡ Speed: ${stats.tokensPerSecond.toStringAsFixed(1)} tok/s');
+    print('Speed: ${stats.tokensPerSecond.toStringAsFixed(1)} tok/s');
     print('Tokens generated: ${stats.generatedTokens}');
   },
 ).listen((token) {
