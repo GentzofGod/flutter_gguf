@@ -44,5 +44,3 @@ example/build/
 example/pubspec.lock
 example/android/.gradle/
 example/android/local.properties
-
-example_agent/*
