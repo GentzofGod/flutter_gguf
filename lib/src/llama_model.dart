@@ -98,10 +98,11 @@ class LlamaModel {
   bool _isDisposed = false;
 
   LlamaModel._({
-    required this._commandPort,
-    required this._isolate,
+    required SendPort commandPort,
+    required Isolate isolate,
     required this.info,
-  });
+  })  : _commandPort = commandPort,
+        _isolate = isolate;
 
   /// Load a GGUF model file on a background isolate.
   static Future<LlamaModel> load(
